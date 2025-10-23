@@ -1,17 +1,22 @@
-const express = require('express');
-const axios = require('axios');
-const app = express();
+const http = require('http');
+const httpProxy = require('http-proxy');
 
-app.get('/admin', async (req, res) => {
-  try {
-    const response = await axios.get('https://attenjdancce-app.onrender.com/admin.html');
-    res.send(response.data);
-  } catch (error) {
-    res.status(500).send('Error fetching admin page: ' + error.message);
-  }
+// 中継先（ESP32がアクセスするHTTPサーバー）
+const target = 'http://your-esp32-server.local'; // ESP32のHTTPサーバーURL
+// プロキシサーバー作成
+const proxy = httpProxy.createProxyServer({
+  target: target,
+  changeOrigin: true,
+  secure: false
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Proxy server running on port ${PORT}`);
+// HTTPSで受けたリクエストをHTTPに中継
+http.createServer((req, res) => {
+  proxy.web(req, res, {}, (err) => {
+    console.error('Proxy error:', err);
+    res.writeHead(502);
+    res.end('Bad Gateway');
+  });
+}).listen(process.env.PORT || 3000, () => {
+  console.log('Proxy server running');
 });
